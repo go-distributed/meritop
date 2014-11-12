@@ -9,6 +9,9 @@ type Framework interface {
 	FlagParentMetaReady(meta Metadata)
 	FlagChildMetaReady(meta Metadata)
 
+	// SetTaskID sets the taskID of the framework.
+	SetTaskID(taskID uint64)
+
 	// These allow application developer to set the task configuration so framework
 	// implementation knows which task to invoke at each node.
 	SetTaskBuilder(taskBuilder TaskBuilder)
@@ -35,7 +38,7 @@ type Framework interface {
 	// it can carry out application dependent communication.
 	GetNode(taskID uint64) Node
 
-	// Return true if this node has children
+	// Return true if this task has children
 	HasChildren() bool
 	HasParents() bool
 }
