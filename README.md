@@ -4,17 +4,23 @@ TaskGraph
 [![Build Status](https://travis-ci.org/go-distributed/meritop.svg)](https://travis-ci.org/go-distributed/meritop)
 
 
-TaskGraph is a framework for writing fault tolerent distributed applications. It assumes that application consists of a network of tasks, which are inter-connected based on certain topology (hence graph). Framework monitors the task/node's health, and take care of restarting the failed tasks, and also pass on a standard set of events (parent fail/restart, children fail/restart) to task implementation so that it can do application dependent recovery.
+TaskGraph is a framework for writing fault-tolerent distributed applications. It assumes that an application is a network of tasks, where the topology of the network can change during the execution of the application. 
+
+The TaskGraph framework monitors tasks's health status, and takes care of restarting failed tasks. It also notify tasks about events, including parent failureand restart, children failure and restart, so to make a chance for application-specific recovery.
 
 
-An TaskGraph application usually has three layers. And application implementation need to configure TaskGraph in driver layer and also implement Task/TaskBuilder/Topology based on application logic. 
+A TaskGraph application consists of three parts:
 
-1. In driver (main function), applicaiton need to configure the task graph. This include setting up TaskBuilder, which specify what task need to run as each node. One also need to specify the network topology which specify who connect to whom at each iteration. Then FrameWork.Start is called so that every node will get into event loop. 
+1. The *driver*, usually the `main` function, which
 
-2. TaskGraph framework handles fault tolerency within the framework. It uses etcd and/or kubernetes for this purpose. It should also handle the communication between logic task so that it can hide the communication between master and hot standby.
+   1. sets up *TaskBuilder*, which maps tasks to nodes,
+   1. specifies network topology at each iteration, and
+   1. calls `FrameWork.Start` to start event loop of every node. 
 
-3. Application need to implement Task interface, to specify how they should react to parent/child dia/restart event to carry out the correct application logic. Note that application developer need to implement TaskBuilder/Topology that suit their need (implementaion of these three interface are wired together in the driver).
+2. The *TaskGraph framework*, which handles fault recovery using `etcd` and `Kubernetes`.  It also provides API to ease inter-task communication.
 
-For an example of driver and task implementation, check dummy_task.go.
+3. An implementation of the `Task` interface, which programs reactions to events sent by the framework, including failures and restart of parent node and children nodes, and dia and restart of the current task.  Note that application developer also need to implement the `TaskBuilder.Topology` interface as required by the driver.
 
-Note, for now, the completion of TaskGraph is not defined explicitly. Instead, each application will have their way of exit based on application dependent logic. As an example, the above application can stop if task 0 stops. We have the hooks in Framework so any node can potentially exit the entire TaskGraph. We also have hook in Task so that task implementation get a change to save the work.
+For an example of driver and task implementation, please refer to `dummy_task.go`.
+
+Please note that we might redefine how applications should terminate themselves in the near future.  
