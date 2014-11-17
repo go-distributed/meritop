@@ -11,25 +11,8 @@ import (
 
 // dummyData is used to carry parameter and gradient;
 type dummyData struct {
-	fromTaskID, toTaskID, epoch, uuID uint64
-	value                             float32
-	data                              [10]float32
-}
-
-func (d *dummyData) Epoch() uint64 {
-	return d.epoch
-}
-
-func (d *dummyData) ToTaskID() uint64 {
-	return d.toTaskID
-}
-
-func (d *dummyData) FromTaskID() uint64 {
-	return d.fromTaskID
-}
-
-func (d *dummyData) UUID() uint64 {
-	return d.uuID
+	value float32
+	data  [10]float32
 }
 
 // dummyMaster is prototype of parameter server, for now it does not
@@ -68,8 +51,8 @@ func (t *dummyMaster) ParentDie(parentID uint64) {}
 func (t *dummyMaster) ChildDie(childID uint64)   {}
 
 // Ideally, we should also have the following:
-func (t *dummyMaster) ParentMetaReady(taskID uint64, meta Metadata) {}
-func (t *dummyMaster) ChildMetaReady(taskID uint64, meta Metadata) {
+func (t *dummyMaster) ParentMetaReady(taskID uint64, meta string) {}
+func (t *dummyMaster) ChildMetaReady(taskID uint64, meta string) {
 	// Get data from child. When all the data is back, starts the next epoch.
 	t.framework.DataRequest(taskID, meta)
 }
@@ -83,24 +66,20 @@ func (t *dummyMaster) SetEpoch(epoch uint64) {
 
 	// Make sure we have a clean slate.
 	t.fromChildren = make(map[uint64]*dummyData)
-	t.framework.FlagChildMetaReady(t.param)
+	t.framework.FlagChildMetaReady("ParamReady")
 }
 
 // These are payload rpc for application purpose.
-func (t *dummyMaster) ServeAsParent(req Metadata) Metadata { return t.param }
-func (t *dummyMaster) ServeAsChild(reg Metadata) Metadata  { return nil }
+func (t *dummyMaster) ServeAsParent(req string) UserData { return t.param }
+func (t *dummyMaster) ServeAsChild(reg string) UserData  { return nil }
 
-func (t *dummyMaster) ParentDataReady(req, response Metadata) {}
-func (t *dummyMaster) ChildDataReady(req, response Metadata) {
-	if req.Epoch() != t.epoch {
-		return
-	}
-
-	data, ok := req.(*dummyData)
+func (t *dummyMaster) ParentDataReady(fromID uint64, req string, response UserData) {}
+func (t *dummyMaster) ChildDataReady(fromID uint64, req string, response UserData) {
+	data, ok := response.(*dummyData)
 	if !ok {
 		t.logger.Fatal("Can't interpret request")
 	}
-	t.fromChildren[data.FromTaskID()] = data
+	t.fromChildren[fromID] = data
 
 	// This is a weak form of checking. We can also check the task ids.
 	// But this really means that we get all the events from children, we
@@ -142,11 +121,11 @@ func (t *dummySlave) ParentDie(parentID uint64) {}
 func (t *dummySlave) ChildDie(childID uint64)   {}
 
 // Ideally, we should also have the following:
-func (t *dummySlave) ParentMetaReady(taskID uint64, meta Metadata) {
+func (t *dummySlave) ParentMetaReady(taskID uint64, meta string) {
 	t.framework.DataRequest(taskID, meta)
 }
 
-func (t *dummySlave) ChildMetaReady(taskID uint64, meta Metadata) {
+func (t *dummySlave) ChildMetaReady(taskID uint64, meta string) {
 	t.framework.DataRequest(taskID, meta)
 }
 
@@ -159,19 +138,15 @@ func (t *dummySlave) SetEpoch(epoch uint64) {
 }
 
 // These are payload rpc for application purpose.
-func (t *dummySlave) ServeAsParent(req Metadata) Metadata {
+func (t *dummySlave) ServeAsParent(req string) UserData {
 	return t.param
 }
-func (t *dummySlave) ServeAsChild(reg Metadata) Metadata {
+func (t *dummySlave) ServeAsChild(reg string) UserData {
 	return t.gradient
 }
 
-func (t *dummySlave) ParentDataReady(req, response Metadata) {
-	if req.Epoch() != t.epoch {
-		return
-	}
-
-	data, ok := req.(*dummyData)
+func (t *dummySlave) ParentDataReady(fromID uint64, req string, response UserData) {
+	data, ok := response.(*dummyData)
 	if !ok {
 		t.logger.Fatal("Can't interpret request")
 	}
@@ -186,23 +161,20 @@ func (t *dummySlave) ParentDataReady(req, response Metadata) {
 	// parameter.
 	children := t.framework.GetTopology().GetChildren(t.epoch)
 	if len(children) != 0 {
-		t.framework.FlagChildMetaReady(t.param)
+		t.framework.FlagChildMetaReady("ParamReady")
 	} else {
 		// On leaf node, we can immediately return by and flag parent
 		// that this node is ready.
-		t.framework.FlagParentMetaReady(t.gradient)
+		t.framework.FlagParentMetaReady("GradientReady")
 	}
 }
 
-func (t *dummySlave) ChildDataReady(req, response Metadata) {
-	if req.Epoch() != t.epoch {
-		return
-	}
-	data, ok := req.(*dummyData)
+func (t *dummySlave) ChildDataReady(fromID uint64, req string, response UserData) {
+	data, ok := response.(*dummyData)
 	if !ok {
 		t.logger.Fatal("Can't interpret request")
 	}
-	t.fromChildren[data.FromTaskID()] = data
+	t.fromChildren[fromID] = data
 
 	// This is a weak form of checking. We can also check the task ids.
 	// But this really means that we get all the events from children, we
@@ -215,7 +187,7 @@ func (t *dummySlave) ChildDataReady(req, response Metadata) {
 			}
 		}
 
-		t.framework.FlagParentMetaReady(t.gradient)
+		t.framework.FlagParentMetaReady("GradientReady")
 	}
 }
 
