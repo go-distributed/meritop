@@ -27,18 +27,6 @@ type Task interface {
 	ChildDataReady(fromID uint64, req string, response UserData)
 }
 
-// We should not try to stay away from the stateful task as much as possible.
-// The state of the job should be fully encoded in epoch/topo and meta from neighbors.
-type StatefulTask interface {
-	// These are called by framework implementation so that task implementation can
-	// reacts to parent or children restart.
-	ParentRestart(parentID uint64)
-	ChildRestart(childID uint64)
-
-	ParentDie(parentID uint64)
-	ChildDie(childID uint64)
-}
-
 type UpdateLog interface {
 	UpdateID()
 }
