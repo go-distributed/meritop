@@ -1,7 +1,5 @@
 package meritop
 
-type UserData interface{}
-
 // Task is a logic repersentation of a computing unit.
 // Each task contain at least one Node.
 // Each task has exact one master Node and might have multiple salve Nodes.
@@ -12,19 +10,21 @@ type Task interface {
 	// Task need to finish up for exit, last chance to save work?
 	Exit()
 
+	// Framework tells user task what current epoch is.
+	// This give the task an opportunity to cleanup and regroup.
+	SetEpoch(epoch uint64)
+
 	// Ideally, we should also have the following:
 	ParentMetaReady(parentID uint64, meta string)
 	ChildMetaReady(childID uint64, meta string)
 
-	// This give the task an opportunity to cleanup and regroup.
-	SetEpoch(epoch uint64)
-
 	// These are payload for application purpose.
-	ServeAsParent(req string) UserData
-	ServeAsChild(reg string) UserData
 
-	ParentDataReady(fromID uint64, req string, response UserData)
-	ChildDataReady(fromID uint64, req string, response UserData)
+	ServeAsParent(req string) ([]byte, error)
+	ServeAsChild(req string) ([]byte, error)
+
+	ParentDataReady(parentID uint64, req string, resp []byte)
+	ChildDataReady(childID uint64, req string, resp []byte)
 }
 
 type UpdateLog interface {

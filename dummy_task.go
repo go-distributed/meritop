@@ -1,10 +1,13 @@
+package meritop
+
 /*
 The dummy task is designed for regresion test of meritop framework.
 This works with
 */
-package meritop
 
 import (
+	"encoding/json"
+	"errors"
 	"log"
 	"os"
 )
@@ -43,10 +46,11 @@ func (t *dummyMaster) Init(taskID uint64, framework Framework, config Config) {
 func (t *dummyMaster) Exit() {}
 
 // Ideally, we should also have the following:
-func (t *dummyMaster) ParentMetaReady(taskID uint64, meta string) {}
-func (t *dummyMaster) ChildMetaReady(taskID uint64, meta string) {
+
+func (t *dummyMaster) ParentMetaReady(parentID uint64, meta string) {}
+func (t *dummyMaster) ChildMetaReady(childID uint64, meta string) {
 	// Get data from child. When all the data is back, starts the next epoch.
-	t.framework.DataRequest(taskID, meta)
+	t.framework.DataRequest(childID, "")
 }
 
 // This give the task an opportunity to cleanup and regroup.
@@ -62,16 +66,19 @@ func (t *dummyMaster) SetEpoch(epoch uint64) {
 }
 
 // These are payload rpc for application purpose.
-func (t *dummyMaster) ServeAsParent(req string) UserData { return t.param }
-func (t *dummyMaster) ServeAsChild(reg string) UserData  { return nil }
+func (t *dummyMaster) ServeAsParent(req string) ([]byte, error) {
+	return json.Marshal(t.param)
+}
+func (t *dummyMaster) ServeAsChild(req string) ([]byte, error) {
+	return nil, errors.New("Master shouldn't serve as child")
+}
 
-func (t *dummyMaster) ParentDataReady(fromID uint64, req string, response UserData) {}
-func (t *dummyMaster) ChildDataReady(fromID uint64, req string, response UserData) {
-	data, ok := response.(*dummyData)
-	if !ok {
-		t.logger.Fatal("Can't interpret request")
-	}
-	t.fromChildren[fromID] = data
+func (t *dummyMaster) ParentDataReady(parentID uint64, req string, resp []byte) {}
+func (t *dummyMaster) ChildDataReady(childID uint64, req string, resp []byte) {
+
+	d := new(dummyData)
+	json.Unmarshal(resp, d)
+	t.fromChildren[childID] = d
 
 	// This is a weak form of checking. We can also check the task ids.
 	// But this really means that we get all the events from children, we
@@ -105,12 +112,12 @@ func (t *dummySlave) Init(taskID uint64, framework Framework, config Config) {
 func (t *dummySlave) Exit() {}
 
 // Ideally, we should also have the following:
-func (t *dummySlave) ParentMetaReady(taskID uint64, meta string) {
-	t.framework.DataRequest(taskID, meta)
+func (t *dummySlave) ParentMetaReady(parentID uint64, meta string) {
+	t.framework.DataRequest(parentID, "")
 }
 
-func (t *dummySlave) ChildMetaReady(taskID uint64, meta string) {
-	t.framework.DataRequest(taskID, meta)
+func (t *dummySlave) ChildMetaReady(childID uint64, meta string) {
+	t.framework.DataRequest(childID, "")
 }
 
 // This give the task an opportunity to cleanup and regroup.
@@ -122,19 +129,16 @@ func (t *dummySlave) SetEpoch(epoch uint64) {
 }
 
 // These are payload rpc for application purpose.
-func (t *dummySlave) ServeAsParent(req string) UserData {
-	return t.param
+func (t *dummySlave) ServeAsParent(req string) ([]byte, error) {
+	return json.Marshal(t.param)
 }
-func (t *dummySlave) ServeAsChild(reg string) UserData {
-	return t.gradient
+func (t *dummySlave) ServeAsChild(req string) ([]byte, error) {
+	return json.Marshal(t.gradient)
 }
 
-func (t *dummySlave) ParentDataReady(fromID uint64, req string, response UserData) {
-	data, ok := response.(*dummyData)
-	if !ok {
-		t.logger.Fatal("Can't interpret request")
-	}
-	t.param = data
+func (t *dummySlave) ParentDataReady(parentID uint64, req string, resp []byte) {
+	t.param = new(dummyData)
+	json.Unmarshal(resp, t.param)
 
 	// We need to carry out local compuation.
 	for i := 0; i < 10; i++ {
@@ -153,12 +157,9 @@ func (t *dummySlave) ParentDataReady(fromID uint64, req string, response UserDat
 	}
 }
 
-func (t *dummySlave) ChildDataReady(fromID uint64, req string, response UserData) {
-	data, ok := response.(*dummyData)
-	if !ok {
-		t.logger.Fatal("Can't interpret request")
-	}
-	t.fromChildren[fromID] = data
+func (t *dummySlave) ChildDataReady(childID uint64, req string, resp []byte) {
+	t.fromChildren[childID] = new(dummyData)
+	json.Unmarshal(resp, t.fromChildren[childID])
 
 	// This is a weak form of checking. We can also check the task ids.
 	// But this really means that we get all the events from children, we
