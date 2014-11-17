@@ -42,14 +42,6 @@ func (t *dummyMaster) Init(taskID uint64, framework Framework, config Config) {
 // Task need to finish up for exit, last chance to save work?
 func (t *dummyMaster) Exit() {}
 
-// These are called by framework implementation so that task implementation can
-// reacts to parent or children restart.
-func (t *dummyMaster) ParentRestart(parentID uint64) {}
-func (t *dummyMaster) ChildRestart(childID uint64)   {}
-
-func (t *dummyMaster) ParentDie(parentID uint64) {}
-func (t *dummyMaster) ChildDie(childID uint64)   {}
-
 // Ideally, we should also have the following:
 func (t *dummyMaster) ParentMetaReady(taskID uint64, meta string) {}
 func (t *dummyMaster) ChildMetaReady(taskID uint64, meta string) {
@@ -111,14 +103,6 @@ func (t *dummySlave) Init(taskID uint64, framework Framework, config Config) {
 
 // Task need to finish up for exit, last chance to save work?
 func (t *dummySlave) Exit() {}
-
-// These are called by framework implementation so that task implementation can
-// reacts to parent or children restart.
-func (t *dummySlave) ParentRestart(parentID uint64) {}
-func (t *dummySlave) ChildRestart(childID uint64)   {}
-
-func (t *dummySlave) ParentDie(parentID uint64) {}
-func (t *dummySlave) ChildDie(childID uint64)   {}
 
 // Ideally, we should also have the following:
 func (t *dummySlave) ParentMetaReady(taskID uint64, meta string) {
