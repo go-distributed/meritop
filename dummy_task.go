@@ -50,7 +50,7 @@ func (t *dummyMaster) Exit() {}
 func (t *dummyMaster) ParentMetaReady(parentID uint64, meta string) {}
 func (t *dummyMaster) ChildMetaReady(childID uint64, meta string) {
 	// Get data from child. When all the data is back, starts the next epoch.
-	t.framework.DataRequest(childID, "")
+	t.framework.DataRequest(childID, meta)
 }
 
 // This give the task an opportunity to cleanup and regroup.
@@ -113,11 +113,11 @@ func (t *dummySlave) Exit() {}
 
 // Ideally, we should also have the following:
 func (t *dummySlave) ParentMetaReady(parentID uint64, meta string) {
-	t.framework.DataRequest(parentID, "")
+	t.framework.DataRequest(parentID, meta)
 }
 
 func (t *dummySlave) ChildMetaReady(childID uint64, meta string) {
-	t.framework.DataRequest(childID, "")
+	t.framework.DataRequest(childID, meta)
 }
 
 // This give the task an opportunity to cleanup and regroup.
