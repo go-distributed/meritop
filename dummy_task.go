@@ -7,7 +7,6 @@ This works with
 
 import (
 	"encoding/json"
-	"errors"
 	"log"
 	"os"
 )
@@ -45,8 +44,6 @@ func (t *dummyMaster) Init(taskID uint64, framework Framework, config Config) {
 // Task need to finish up for exit, last chance to save work?
 func (t *dummyMaster) Exit() {}
 
-// Ideally, we should also have the following:
-
 func (t *dummyMaster) ParentMetaReady(parentID uint64, meta string) {}
 func (t *dummyMaster) ChildMetaReady(childID uint64, meta string) {
 	// Get data from child. When all the data is back, starts the next epoch.
@@ -66,11 +63,16 @@ func (t *dummyMaster) SetEpoch(epoch uint64) {
 }
 
 // These are payload rpc for application purpose.
-func (t *dummyMaster) ServeAsParent(req string) ([]byte, error) {
-	return json.Marshal(t.param)
+func (t *dummyMaster) ServeAsParent(req string) []byte {
+	blob, err := json.Marshal(t.param)
+	if err != nil {
+		t.logger.Fatal(err)
+		t.framework.Exit()
+	}
+	return blob
 }
-func (t *dummyMaster) ServeAsChild(req string) ([]byte, error) {
-	return nil, errors.New("Master shouldn't serve as child")
+func (t *dummyMaster) ServeAsChild(req string) []byte {
+	return nil
 }
 
 func (t *dummyMaster) ParentDataReady(parentID uint64, req string, resp []byte) {}
@@ -129,11 +131,21 @@ func (t *dummySlave) SetEpoch(epoch uint64) {
 }
 
 // These are payload rpc for application purpose.
-func (t *dummySlave) ServeAsParent(req string) ([]byte, error) {
-	return json.Marshal(t.param)
+func (t *dummySlave) ServeAsParent(req string) []byte {
+	blob, err := json.Marshal(t.param)
+	if err != nil {
+		t.logger.Fatal(err)
+		t.framework.Exit()
+	}
+	return blob
 }
-func (t *dummySlave) ServeAsChild(req string) ([]byte, error) {
-	return json.Marshal(t.gradient)
+func (t *dummySlave) ServeAsChild(req string) []byte {
+	blob, err := json.Marshal(t.gradient)
+	if err != nil {
+		t.logger.Fatal(err)
+		t.framework.Exit()
+	}
+	return blob
 }
 
 func (t *dummySlave) ParentDataReady(parentID uint64, req string, resp []byte) {
