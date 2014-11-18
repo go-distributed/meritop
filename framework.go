@@ -52,6 +52,12 @@ type Framework interface {
 	GetTaskID() uint64
 }
 
+// TODO: separate framework and user meta-data
+type Context struct {
+	epoch, fromID, toID, uuID uint64
+	meta                      string
+}
+
 type framework struct {
 	// These should be passed by outside world
 	name     string
