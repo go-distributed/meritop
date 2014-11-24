@@ -20,7 +20,7 @@ const (
 	TasksDir       = "tasks"
 	NodesDir       = "nodes"
 	ConfigDir      = "config"
-	EpochDir       = "epoch"
+	Epoch          = "epoch"
 	TaskParentMeta = "ParentMeta"
 	TaskChildMeta  = "ChildMeta"
 	NodeAddr       = "address"
@@ -30,7 +30,7 @@ const (
 func MakeJobEpochPath(appName string) string {
 	return path.Join("/",
 		appName,
-		EpochDir)
+		Epoch)
 }
 
 func MakeTaskMasterPath(appName string, taskID uint64) string {
