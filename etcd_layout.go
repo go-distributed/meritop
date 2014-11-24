@@ -27,7 +27,7 @@ const (
 	NodeTTL        = "ttl"
 )
 
-func MakeJobEpochPath(appName String) string {
+func MakeJobEpochPath(appName string) string {
 	return path.Join("/",
 		appName,
 		EpochDir)
