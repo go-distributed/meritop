@@ -142,8 +142,6 @@ func (f *framework) parentOrChild(taskID uint64) taskRole {
 func (f *framework) Start() {
 	f.etcdClient = etcd.NewClient(f.etcdURLs)
 
-	// TODO: we need to get taskID from etcd here.
-
 	f.epoch = 0
 	f.stops = make([]chan bool, 0)
 	f.dataRespChan = make(chan *dataResponse, 100)
