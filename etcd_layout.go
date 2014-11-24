@@ -21,6 +21,7 @@ const (
 	NodesDir       = "nodes"
 	ConfigDir      = "config"
 	Epoch          = "epoch"
+	TaskMaster     = "0"
 	TaskParentMeta = "ParentMeta"
 	TaskChildMeta  = "ChildMeta"
 	NodeAddr       = "address"
@@ -38,7 +39,7 @@ func MakeTaskMasterPath(appName string, taskID uint64) string {
 		appName,
 		TasksDir,
 		strconv.FormatUint(taskID, 10),
-		"0")
+		TaskMaster)
 }
 
 func MakeParentMetaPath(appName string, taskID uint64) string {

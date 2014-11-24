@@ -141,6 +141,9 @@ func (f *framework) parentOrChild(taskID uint64) taskRole {
 
 func (f *framework) Start() {
 	f.etcdClient = etcd.NewClient(f.etcdURLs)
+
+	// TODO: we need to get taskID from etcd here.
+
 	f.epoch = 0
 	f.stops = make([]chan bool, 0)
 	f.dataRespChan = make(chan *dataResponse, 100)
@@ -169,25 +172,21 @@ func (f *framework) Start() {
 	f.task.Init(f.taskID, f, f.config)
 	f.task.SetEpoch(f.epoch)
 
-	// Get into endless loop to handle events.
-	for f.epoch != maxUint64 {
-		select {
-		case dataResp := <-f.dataRespChan:
-			switch f.parentOrChild(dataResp.taskID) {
-			case roleParent:
-				go f.task.ParentDataReady(dataResp.taskID, dataResp.req, dataResp.data)
-			case roleChild:
-				go f.task.ChildDataReady(dataResp.taskID, dataResp.req, dataResp.data)
-			default:
-				panic("unimplemented")
-			}
-		case <-f.dataCloseChan:
-			return
-		}
-	}
+	// TODO(hongchao)
+	// We need to have two levels loop here so that we can effectively
+	// stop the work that task is working on for last epoch.
+	// for f.epoch != maxUint64 {
+	// 	for exmple, this can be run here f.dataResponseReceiver()
+	// }
+	// you might want to just run the following function directly.
+	f.dataResponseReceiver()
 }
 
-func (f *framework) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+type dataReqHandler struct {
+	f *framework
+}
+
+func (h *dataReqHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != dataRequestPrefix {
 		http.Error(w, "bad path", http.StatusBadRequest)
 		return
@@ -203,11 +202,11 @@ func (f *framework) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	req := q.Get(dataRequestReq)
 	// ask task to serve data
 	var b []byte
-	switch f.parentOrChild(fromID) {
+	switch h.f.parentOrChild(fromID) {
 	case roleParent:
-		b = f.task.ServeAsChild(fromID, req)
+		b = h.f.task.ServeAsChild(fromID, req)
 	case roleChild:
-		b = f.task.ServeAsParent(fromID, req)
+		b = h.f.task.ServeAsParent(fromID, req)
 	default:
 		http.Error(w, "taskID isn't a parent or child of this task", http.StatusBadRequest)
 		return
@@ -224,8 +223,27 @@ func (f *framework) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // On success, it should respond with requested data in http body.
 func (f *framework) startHttp() {
 	log.Printf("framework: serving http on %s", f.ln.Addr())
-	if err := http.Serve(f.ln, f); err != nil {
+	if err := http.Serve(f.ln, &dataReqHandler{f}); err != nil {
 		log.Fatalf("http.Serve() returns error: %v\n", err)
+	}
+}
+
+// Framework event loop handles data response for requests sent in DataRequest().
+func (f *framework) dataResponseReceiver() {
+	for {
+		select {
+		case dataResp := <-f.dataRespChan:
+			switch f.parentOrChild(dataResp.taskID) {
+			case roleParent:
+				go f.task.ParentDataReady(dataResp.taskID, dataResp.req, dataResp.data)
+			case roleChild:
+				go f.task.ChildDataReady(dataResp.taskID, dataResp.req, dataResp.data)
+			default:
+				panic("unimplemented")
+			}
+		case <-f.dataCloseChan:
+			return
+		}
 	}
 }
 
