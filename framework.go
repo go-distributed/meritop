@@ -233,25 +233,6 @@ func (f *framework) startHttp() {
 	}
 }
 
-// Framework event loop handles data response for requests sent in DataRequest().
-func (f *framework) dataResponseReceiver() {
-	for {
-		select {
-		case dataResp := <-f.dataRespChan:
-			switch f.parentOrChild(dataResp.taskID) {
-			case roleParent:
-				go f.task.ParentDataReady(dataResp.taskID, dataResp.req, dataResp.data)
-			case roleChild:
-				go f.task.ChildDataReady(dataResp.taskID, dataResp.req, dataResp.data)
-			default:
-				panic("unimplemented")
-			}
-		case <-f.dataCloseChan:
-			return
-		}
-	}
-}
-
 func (f *framework) stop() {
 	close(f.dataCloseChan)
 	for _, c := range f.stops {
