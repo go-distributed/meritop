@@ -200,10 +200,10 @@ func (f *framework) Start() {
 	f.task.Init(f.taskID, f, f.config)
 
 	for f.epoch != maxUint64 {
+		f.task.SetEpoch(f.epoch)
 		select {
 		case newEpoch := <-f.epochChan:
 			f.epoch = newEpoch
-			f.task.SetEpoch(f.epoch)
 		case <-f.epochStop:
 			return
 		}

@@ -53,9 +53,8 @@ func (t *dummyMaster) Init(taskID uint64, framework Framework, config Config) {
 	t.taskID = taskID
 	t.framework = framework
 	t.logger = log.New(os.Stdout, "dummyMaster:", log.Ldate|log.Ltime|log.Lshortfile)
-
-	// Jump start the taskgraph
-	t.framework.IncEpoch()
+	t.param = &dummyData{}
+	t.gradient = &dummyData{}
 }
 
 // Task need to finish up for exit, last chance to save work?
@@ -141,6 +140,8 @@ func (t *dummySlave) Init(taskID uint64, framework Framework, config Config) {
 	t.taskID = taskID
 	t.framework = framework
 	t.logger = log.New(os.Stdout, "dummySlave:", log.Ldate|log.Ltime|log.Lshortfile)
+	t.param = &dummyData{}
+	t.gradient = &dummyData{}
 }
 
 // Task need to finish up for exit, last chance to save work?
