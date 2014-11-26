@@ -53,9 +53,8 @@ func (t *dummyMaster) Init(taskID uint64, framework Framework, config Config) {
 	t.taskID = taskID
 	t.framework = framework
 	t.logger = log.New(os.Stdout, "dummyMaster:", log.Ldate|log.Ltime|log.Lshortfile)
-
-	// Jump start the taskgraph
-	t.framework.IncEpoch()
+	t.param = &dummyData{}
+	t.gradient = &dummyData{}
 }
 
 // Task need to finish up for exit, last chance to save work?
@@ -141,6 +140,8 @@ func (t *dummySlave) Init(taskID uint64, framework Framework, config Config) {
 	t.taskID = taskID
 	t.framework = framework
 	t.logger = log.New(os.Stdout, "dummySlave:", log.Ldate|log.Ltime|log.Lshortfile)
+	t.param = &dummyData{}
+	t.gradient = &dummyData{}
 }
 
 // Task need to finish up for exit, last chance to save work?
@@ -243,16 +244,14 @@ func (tc simpleTaskBuilder) GetTask(taskID uint64) Task {
 }
 
 // This is used to show how to drive the network.
-func drive(jobName string, etcds []string, config Config, ntask uint64, dc chan int32) {
-	var bootstrap Bootstrap = NewBootStrap(jobName, etcds, config)
-	taskBuilder := &simpleTaskBuilder{gDataChan: dc}
+func drive(t *testing.T, jobName string, etcds []string, config Config, ntask uint64, taskBuilder TaskBuilder) {
+	bootstrap := NewBootStrap(jobName, etcds, config, createListener(t))
 	bootstrap.SetTaskBuilder(taskBuilder)
-	bootstrap.SetTopology(NewTreeTopology(2, ntask))
+	bootstrap.SetTopology(NewTreeTopology(2, ntask-1))
 	bootstrap.Start()
 }
 
-func tTestFramework(t *testing.T) {
-
+func TestRegressionFramework(t *testing.T) {
 	m := mustNewMember(t, "framework_regression_test")
 	m.Launch()
 	defer m.Terminate(t)
@@ -261,23 +260,25 @@ func tTestFramework(t *testing.T) {
 	job := "framework_regression_test"
 	etcds := []string{url}
 	config := map[string]string{}
-	numOfTasks := uint64(15)
-	gDataChan := make(chan int32, 1)
+	// numOfTasks := uint64(15)
+	numOfTasks := uint64(3)
+
+	// controller start first to setup task directories in etcd
 	controller := &controller{
 		name:       job,
 		etcdclient: etcd.NewClient([]string{url}),
 		numOfTasks: numOfTasks,
 	}
-
 	controller.initEtcdLayout()
 	defer controller.destroyEtcdLayout()
 
 	// We need to set etcd so that nodes know what to do.
+	taskBuilder := &simpleTaskBuilder{gDataChan: make(chan int32, 1)}
 	for i := uint64(0); i < numOfTasks; i++ {
-		go drive(job, etcds, config, numOfTasks, gDataChan)
+		go drive(t, job, etcds, config, numOfTasks, taskBuilder)
 	}
 
 	// wait for last number to comeback.
-	data := <-gDataChan
+	data := <-taskBuilder.gDataChan
 	fmt.Println("Exiting with data = %d", data)
 }
