@@ -86,11 +86,12 @@ type Framework interface {
 
 // One need to pass in at least these two for framework to start. The config
 // is used to pass on to task implementation for its configuration.
-func NewBootStrap(jobName string, etcdURLs []string, config Config) Bootstrap {
+func NewBootStrap(jobName string, etcdURLs []string, config Config, ln net.Listener) Bootstrap {
 	return &framework{
 		name:     jobName,
 		etcdURLs: etcdURLs,
 		config:   config,
+		ln:       ln,
 	}
 }
 
@@ -161,7 +162,7 @@ func (f *framework) Start() {
 	var err error
 
 	if f.log == nil {
-		f.log = log.New(os.Stdout, "framework: ", log.Lshortfile|log.Ltime)
+		f.log = log.New(os.Stdout, "", log.Lshortfile|log.Ltime|log.Ldate)
 	}
 
 	// First, we fetch the current global epoch from etcd.
@@ -169,10 +170,6 @@ func (f *framework) Start() {
 	if err != nil {
 		f.log.Fatal("Can not parse epoch from etcd")
 	}
-
-	f.stops = make([]chan bool, 0)
-	f.dataRespChan = make(chan *dataResponse, 100)
-	f.dataCloseChan = make(chan struct{})
 
 	if f.taskID, err = f.occupyTask(); err != nil {
 		f.log.Fatalf("occupyTask failed: %v", err)
@@ -190,10 +187,8 @@ func (f *framework) Start() {
 	// - watch children's parent meta flag
 	f.etcdClient.Create(MakeParentMetaPath(f.name, f.GetTaskID()), "", 0)
 	f.etcdClient.Create(MakeChildMetaPath(f.name, f.GetTaskID()), "", 0)
-	parentStops := f.watchAll(roleParent, f.topology.GetParents(f.epoch))
-	childStops := f.watchAll(roleChild, f.topology.GetChildren(f.epoch))
-	f.stops = append(f.stops, parentStops...)
-	f.stops = append(f.stops, childStops...)
+	f.watchAll(roleParent, f.topology.GetParents(f.epoch))
+	f.watchAll(roleChild, f.topology.GetChildren(f.epoch))
 
 	// We need to first watch epoch.
 	f.watchEpoch()
@@ -203,7 +198,6 @@ func (f *framework) Start() {
 
 	// After framework init finished, it should init task.
 	f.task.Init(f.taskID, f, f.config)
-	f.task.SetEpoch(f.epoch)
 
 	for f.epoch != maxUint64 {
 		select {
@@ -293,6 +287,8 @@ func (f *framework) startHttp() {
 
 // Framework event loop handles data response for requests sent in DataRequest().
 func (f *framework) dataResponseReceiver() {
+	f.dataRespChan = make(chan *dataResponse, 100)
+	f.dataCloseChan = make(chan struct{})
 	for {
 		select {
 		case dataResp := <-f.dataRespChan:
@@ -362,14 +358,14 @@ func (f *framework) watchEpoch() {
 			}
 			epoch, err := strconv.ParseUint(resp.Node.Value, 10, 64)
 			if err != nil {
-				return
+				f.log.Fatal("Can't parse epoch from etcd")
 			}
 			f.epochChan <- epoch
 		}
 	}(receiver)
 }
 
-func (f *framework) watchAll(who taskRole, taskIDs []uint64) []chan bool {
+func (f *framework) watchAll(who taskRole, taskIDs []uint64) {
 	stops := make([]chan bool, len(taskIDs))
 
 	for i, taskID := range taskIDs {
@@ -406,7 +402,7 @@ func (f *framework) watchAll(who taskRole, taskIDs []uint64) []chan bool {
 			}
 		}(receiver, taskID)
 	}
-	return stops
+	f.stops = append(f.stops, stops...)
 }
 
 // getAddress will return the host:port address of the service taking care of
@@ -464,7 +460,7 @@ func (f *framework) DataRequest(toID uint64, req string) {
 }
 
 func (f *framework) GetTopology() Topology {
-	panic("unimplemented")
+	return f.topology
 }
 
 // When node call this on framework, it simply set epoch to a maxUint64,
