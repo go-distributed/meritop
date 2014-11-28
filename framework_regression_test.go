@@ -233,7 +233,7 @@ func (tc simpleTaskBuilder) GetTask(taskID uint64) Task {
 func drive(t *testing.T, jobName string, etcds []string, config Config, ntask uint64, taskBuilder TaskBuilder) {
 	bootstrap := NewBootStrap(jobName, etcds, config, createListener(t), nil)
 	bootstrap.SetTaskBuilder(taskBuilder)
-	bootstrap.SetTopology(NewTreeTopology(2, ntask))
+	bootstrap.SetTopology(NewTreeTopology(2, ntask-1))
 	bootstrap.Start()
 }
 
