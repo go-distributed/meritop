@@ -1,6 +1,9 @@
 package meritop
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 type treeTopoTest struct {
 	id                uint64
@@ -62,6 +65,7 @@ func testTreeTopology(fanout, number uint64, tests []treeTopoTest, t *testing.T)
 		treeTopology := NewTreeTopology(fanout, number)
 		treeTopology.SetTaskID(tt.id)
 
+		fmt.Printf("Testing for id %d\n", tt.id)
 		parents := treeTopology.GetParents(0)
 		if len(parents) != len(tt.parents) {
 			t.Errorf("TreeTopology27 got wrong number of parents for %q", tt.id)
