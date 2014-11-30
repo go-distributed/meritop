@@ -38,6 +38,7 @@ type dummyData struct {
 // Note: in theory, since there should be no parent of this, so we should
 // add error checing in the right places. We will skip these test for now.
 type dummyMaster struct {
+	taskChan      chan bool
 	dataChan      chan int32
 	finishChan    chan struct{}
 	framework     Framework
@@ -123,6 +124,7 @@ func (t *dummyMaster) ChildDataReady(childID uint64, req string, resp []byte) {
 // It mainly does to things, pass on parameters to its children, and collect
 // gradient back then add them together before make it available to its parent.
 type dummySlave struct {
+	taskChan      chan bool
 	framework     Framework
 	epoch, taskID uint64
 	logger        *log.Logger
@@ -216,6 +218,7 @@ func (t *dummySlave) ChildDataReady(childID uint64, req string, resp []byte) {
 type simpleTaskBuilder struct {
 	gDataChan  chan int32
 	finishChan chan struct{}
+	taskChan   chan bool
 }
 
 // Leave it at global level so that we use this to terminate and test.
@@ -263,10 +266,28 @@ func TestRegressionFramework(t *testing.T) {
 	taskBuilder := &simpleTaskBuilder{
 		gDataChan:  make(chan int32, 10),
 		finishChan: make(chan struct{}),
+		taskChan:   make(chan bool, numOfTasks),
+	}
+
+	for i := uint64(0); i < numOfTasks; i++ {
+		taskBuilder.taskChan <- true
 	}
 	for i := uint64(0); i < numOfTasks; i++ {
+		<-taskBuilder.taskChan
 		go drive(t, job, etcds, config, numOfTasks, taskBuilder)
 	}
+
+	// This go function is used to monitor the number of tasks so that
+	// there are always enough task coming up.
+	go func(taskChan <-chan bool) {
+		for flag := range taskChan {
+			if flag {
+				go drive(t, job, etcds, config, numOfTasks, taskBuilder)
+			} else {
+				return
+			}
+		}
+	}(taskBuilder.taskChan)
 
 	// wait for last number to comeback.
 	wantData := []int32{0, 105, 210, 315, 420, 525, 630, 735, 840, 945, 1050}
