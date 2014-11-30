@@ -76,8 +76,9 @@ func (t *dummyMaster) SetEpoch(epoch uint64) {
 	if rand.Intn(100) < 5 {
 		// add one to taskChan so that new task will be started to replace this
 		// one that is going out.
-		taskChan <- true
+		t.taskChan <- true
 		// TODO: how do we make sure we shutdown goroutine gracefully.
+		t.framework.ShutdownTask()
 	}
 
 	// Make sure we have a clean slate.

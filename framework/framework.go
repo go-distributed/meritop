@@ -56,6 +56,10 @@ func (f *framework) dataResponseReceiver() {
 	}
 }
 
+func (f *framework) ShutdownTask() {
+	f.stop()
+}
+
 func (f *framework) stop() {
 	close(f.dataRespChan)
 	f.epochStop <- true

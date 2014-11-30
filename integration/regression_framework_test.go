@@ -60,6 +60,9 @@ func TestRegressionFramework(t *testing.T) {
 		getData[i] = <-taskBuilder.GDataChan
 	}
 
+	// Close the taskChan.
+	taskBuilder.TaskChan <- false
+
 	for i := range wantData {
 		if wantData[i] != getData[i] {
 			t.Errorf("#%d: data want = %d, get = %d\n", i, wantData[i], getData[i])
