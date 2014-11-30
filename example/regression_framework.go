@@ -164,6 +164,14 @@ func (t *dummySlave) SetEpoch(epoch uint64) {
 	t.param = &dummyData{}
 	t.gradient = &dummyData{}
 
+	if rand.Intn(100) < 5 {
+		// add one to taskChan so that new task will be started to replace this
+		// one that is going out.
+		t.taskChan <- true
+		// TODO: how do we make sure we shutdown goroutine gracefully.
+		t.framework.ShutdownTask()
+	}
+
 	t.epoch = epoch
 	// Make sure we have a clean slate.
 	t.fromChildren = make(map[uint64]*dummyData)
