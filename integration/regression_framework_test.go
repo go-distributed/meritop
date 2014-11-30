@@ -33,10 +33,25 @@ func TestRegressionFramework(t *testing.T) {
 	taskBuilder := &example.SimpleTaskBuilder{
 		GDataChan:  make(chan int32, 10),
 		FinishChan: make(chan struct{}),
+		TaskChan:   make(chan bool, numOfTasks),
 	}
 	for i := uint64(0); i < numOfTasks; i++ {
+		taskBuilder.TaskChan <- true
+	}
+	for i := uint64(0); i < numOfTasks; i++ {
+		<-taskBuilder.TaskChan
 		go drive(t, job, etcds, config, numOfTasks, taskBuilder)
 	}
+
+	go func(taskChan <-chan bool) {
+		for flag := range taskChan {
+			if flag {
+				go drive(t, job, etcds, config, numOfTasks, taskBuilder)
+			} else {
+				return
+			}
+		}
+	}(taskBuilder.TaskChan)
 
 	// wait for last number to comeback.
 	wantData := []int32{0, 105, 210, 315, 420, 525, 630, 735, 840, 945, 1050}
