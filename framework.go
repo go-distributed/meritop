@@ -147,7 +147,7 @@ func (f *framework) parentOrChild(taskID uint64) taskRole {
 func (f *framework) fetchEpoch() (uint64, error) {
 	f.etcdClient = etcd.NewClient(f.etcdURLs)
 
-	epochPath := MakeJobEpochPath(f.name)
+	epochPath := JobEpochPath(f.name)
 	resp, err := f.etcdClient.Get(epochPath, false, false)
 	if err != nil {
 		f.log.Fatal("Can not get epoch from etcd")
@@ -182,8 +182,8 @@ func (f *framework) Start() {
 	// - create self's parent and child meta flag
 	// - watch parents' child meta flag
 	// - watch children's parent meta flag
-	f.etcdClient.Create(MakeParentMetaPath(f.name, f.GetTaskID()), "", 0)
-	f.etcdClient.Create(MakeChildMetaPath(f.name, f.GetTaskID()), "", 0)
+	f.etcdClient.Create(ParentMetaPath(f.name, f.GetTaskID()), "", 0)
+	f.etcdClient.Create(ChildMetaPath(f.name, f.GetTaskID()), "", 0)
 	f.watchAll(roleParent, f.topology.GetParents(f.epoch))
 	f.watchAll(roleChild, f.topology.GetChildren(f.epoch))
 
@@ -249,8 +249,7 @@ func (h *dataReqHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // occupyTask will grab the first unassigned task and register itself on etcd.
 func (f *framework) occupyTask() (uint64, error) {
 	// get all nodes under task dir
-	slots, err := f.etcdClient.Get(
-		MakeTaskDirPath(f.name), true, true)
+	slots, err := f.etcdClient.Get(TaskDirPath(f.name), true, true)
 	if err != nil {
 		return 0, err
 	}
@@ -265,7 +264,7 @@ func (f *framework) occupyTask() (uint64, error) {
 		// - See if current task is unassigned.
 		// - If it's unassgined, currently task will set its ip address to the key.
 		_, err = f.etcdClient.CompareAndSwap(
-			MakeTaskMasterPath(f.name, id),
+			TaskMasterPath(f.name, id),
 			f.ln.Addr().String(),
 			0, "empty", 0)
 		if err == nil {
@@ -311,14 +310,14 @@ func (f *framework) stop() {
 
 func (f *framework) FlagMetaToParent(meta string) {
 	f.etcdClient.Set(
-		MakeParentMetaPath(f.name, f.GetTaskID()),
+		ParentMetaPath(f.name, f.GetTaskID()),
 		meta,
 		0)
 }
 
 func (f *framework) FlagMetaToChild(meta string) {
 	f.etcdClient.Set(
-		MakeChildMetaPath(f.name, f.GetTaskID()),
+		ChildMetaPath(f.name, f.GetTaskID()),
 		meta,
 		0)
 }
@@ -328,7 +327,7 @@ func (f *framework) FlagMetaToChild(meta string) {
 // for epoch and update their local epoch correspondingly.
 func (f *framework) IncEpoch() {
 	_, err := f.etcdClient.CompareAndSwap(
-		MakeJobEpochPath(f.name),
+		JobEpochPath(f.name),
 		strconv.FormatUint(f.epoch+1, 10),
 		0, strconv.FormatUint(f.epoch, 10), 0)
 	if err != nil {
@@ -341,7 +340,7 @@ func (f *framework) watchEpoch() {
 	f.epochChan = make(chan uint64, 1)
 	f.epochStop = make(chan bool, 1)
 
-	watchPath := MakeJobEpochPath(f.name)
+	watchPath := JobEpochPath(f.name)
 	go f.etcdClient.Watch(watchPath, 1, false, receiver, f.epochStop)
 	go func(receiver <-chan *etcd.Response) {
 		for resp := range receiver {
@@ -370,11 +369,11 @@ func (f *framework) watchAll(who taskRole, taskIDs []uint64) {
 		switch who {
 		case roleParent:
 			// Watch parent's child.
-			watchPath = MakeChildMetaPath(f.name, taskID)
+			watchPath = ChildMetaPath(f.name, taskID)
 			taskCallback = f.task.ParentMetaReady
 		case roleChild:
 			// Watch child's parent.
-			watchPath = MakeParentMetaPath(f.name, taskID)
+			watchPath = ParentMetaPath(f.name, taskID)
 			taskCallback = f.task.ChildMetaReady
 		default:
 			panic("unimplemented")
@@ -398,7 +397,7 @@ func (f *framework) watchAll(who taskRole, taskIDs []uint64) {
 // Currently we grab the information from etcd every time. Local cache could be used.
 // If it failed, e.g. network failure, it should return error.
 func (f *framework) getAddress(id uint64) (string, error) {
-	resp, err := f.etcdClient.Get(MakeTaskMasterPath(f.name, id), false, false)
+	resp, err := f.etcdClient.Get(TaskMasterPath(f.name, id), false, false)
 	if err != nil {
 		return "", err
 	}
@@ -455,7 +454,7 @@ func (f *framework) GetTopology() Topology {
 // All nodes will be notified of the epoch change and exit themselves.
 func (f *framework) ShutdownJob() {
 	maxUint64Str := strconv.FormatUint(maxUint64, 10)
-	f.etcdClient.Set(MakeJobEpochPath(f.name), maxUint64Str, 0)
+	f.etcdClient.Set(JobEpochPath(f.name), maxUint64Str, 0)
 }
 
 func (f *framework) GetLogger() *log.Logger {

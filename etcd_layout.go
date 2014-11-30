@@ -28,21 +28,21 @@ const (
 	NodeTTL        = "ttl"
 )
 
-func MakeJobEpochPath(appName string) string {
+func JobEpochPath(appName string) string {
 	return path.Join("/",
 		appName,
 		Epoch)
 }
 
-func MakeTaskDirPath(appName string) string {
+func TaskDirPath(appName string) string {
 	return path.Join("/", appName, TasksDir)
 }
 
-func MakeTaskMasterPath(appName string, taskID uint64) string {
+func TaskMasterPath(appName string, taskID uint64) string {
 	return path.Join("/", appName, TasksDir, strconv.FormatUint(taskID, 10), TaskMaster)
 }
 
-func MakeParentMetaPath(appName string, taskID uint64) string {
+func ParentMetaPath(appName string, taskID uint64) string {
 	return path.Join("/",
 		appName,
 		TasksDir,
@@ -50,7 +50,7 @@ func MakeParentMetaPath(appName string, taskID uint64) string {
 		TaskParentMeta)
 }
 
-func MakeChildMetaPath(appName string, taskID uint64) string {
+func ChildMetaPath(appName string, taskID uint64) string {
 	return path.Join("/",
 		appName,
 		TasksDir,
