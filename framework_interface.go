@@ -39,6 +39,9 @@ type Framework interface {
 	// If successful, all tasks will be gracefully shutdown.
 	ShutdownJob()
 
+	// Application can try to gracefully shutdow task.
+	ShutdownTask()
+
 	// Some task can inform all participating tasks to new epoch
 	IncEpoch()
 
