@@ -3,6 +3,7 @@ package framework
 import (
 	"encoding/json"
 	"log"
+	"math/rand"
 	"os"
 	"strconv"
 
@@ -37,6 +38,7 @@ type dummyData struct {
 // Note: in theory, since there should be no parent of this, so we should
 // add error checing in the right places. We will skip these test for now.
 type dummyMaster struct {
+	taskChan      chan bool
 	dataChan      chan int32
 	finishChan    chan struct{}
 	taskStopChan  chan bool
@@ -47,6 +49,7 @@ type dummyMaster struct {
 
 	param, gradient *dummyData
 	fromChildren    map[uint64]*dummyData
+	failLevel       int
 }
 
 // This is useful to bring the task up to speed from scratch or if it recovers.
@@ -54,7 +57,7 @@ func (t *dummyMaster) Init(taskID uint64, framework meritop.Framework) {
 	t.taskID = taskID
 	t.framework = framework
 	t.logger = log.New(os.Stdout, "", log.Ldate|log.Ltime|log.Lshortfile)
-	// t.logger = log.New(ioutil.Discard, "", log.Ldate|log.Ltime|log.Lshortfile)
+	t.failLevel = 0
 }
 
 // Task need to finish up for exit, last chance to save work?
@@ -111,6 +114,14 @@ func (t *dummyMaster) ChildDataReady(childID uint64, req string, resp []byte) {
 	json.Unmarshal(resp, d)
 	t.fromChildren[childID] = d
 
+	if rand.Intn(100) < t.failLevel {
+		// add one to taskChan so that new task will be started to replace this
+		// one that is going out.
+		t.taskChan <- true
+		// TODO: how do we make sure we shutdown goroutine gracefully.
+		t.framework.(*framework).stop()
+	}
+
 	// This is a weak form of checking. We can also check the task ids.
 	// But this really means that we get all the events from children, we
 	// should go into the next epoch now.
@@ -137,12 +148,14 @@ func (t *dummyMaster) ChildDataReady(childID uint64, req string, resp []byte) {
 // It mainly does to things, pass on parameters to its children, and collect
 // gradient back then add them together before make it available to its parent.
 type dummySlave struct {
+	taskChan      chan bool
 	framework     meritop.Framework
 	epoch, taskID uint64
 	logger        *log.Logger
 
 	param, gradient *dummyData
 	fromChildren    map[uint64]*dummyData
+	failLevel       int
 }
 
 // This is useful to bring the task up to speed from scratch or if it recovers.
@@ -150,7 +163,7 @@ func (t *dummySlave) Init(taskID uint64, framework meritop.Framework) {
 	t.taskID = taskID
 	t.framework = framework
 	t.logger = log.New(os.Stdout, "", log.Ldate|log.Ltime|log.Lshortfile)
-	// t.logger = log.New(ioutil.Discard, "", log.Ldate|log.Ltime|log.Lshortfile)
+	t.failLevel = 0
 }
 
 // Task need to finish up for exit, last chance to save work?
@@ -203,6 +216,14 @@ func (t *dummySlave) ParentDataReady(parentID uint64, req string, resp []byte) {
 	// We need to carry out local compuation.
 	t.gradient.Value = t.param.Value * int32(t.framework.GetTaskID())
 
+	if rand.Intn(100) < t.failLevel {
+		// add one to taskChan so that new task will be started to replace this
+		// one that is going out.
+		t.taskChan <- true
+		// TODO: how do we make sure we shutdown goroutine gracefully.
+		t.framework.(*framework).stop()
+	}
+
 	// If this task has children, flag meta so that children can start pull
 	// parameter.
 	children := t.framework.GetTopology().GetChildren(t.epoch)
@@ -233,6 +254,7 @@ func (t *dummySlave) ChildDataReady(childID uint64, req string, resp []byte) {
 }
 
 type SimpleTaskBuilder struct {
+	TaskChan     chan bool
 	GDataChan    chan int32
 	FinishChan   chan struct{}
 	TaskStopChan chan bool
@@ -248,11 +270,12 @@ type SimpleTaskBuilder struct {
 func (tc SimpleTaskBuilder) GetTask(taskID uint64) meritop.Task {
 	if taskID == 0 {
 		return &dummyMaster{
+			taskChan:     tc.TaskChan,
 			dataChan:     tc.GDataChan,
 			finishChan:   tc.FinishChan,
 			taskStopChan: tc.TaskStopChan,
 			config:       tc.Config,
 		}
 	}
-	return &dummySlave{}
+	return &dummySlave{taskChan: tc.TaskChan}
 }

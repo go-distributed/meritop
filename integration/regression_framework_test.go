@@ -32,10 +32,32 @@ func TestRegressionFramework(t *testing.T) {
 	taskBuilder := &framework.SimpleTaskBuilder{
 		GDataChan:  make(chan int32, 11),
 		FinishChan: make(chan struct{}),
+		TaskChan:   make(chan bool, numOfTasks),
 	}
+
+	// We first fill the bufferred channel with enough flag.
 	for i := uint64(0); i < numOfTasks; i++ {
+		taskBuilder.TaskChan <- true
+	}
+
+	// We then empty the channel while we start the go routine to simulate the
+	// node.
+	for i := uint64(0); i < numOfTasks; i++ {
+		<-taskBuilder.TaskChan
 		go drive(t, job, etcds, numOfTasks, taskBuilder)
 	}
+
+	// This simulate the kubernetes functions by monitoring the taskChan to
+	// see if there is failure, if so, start another goroutine to take its place.
+	go func(taskChan <-chan bool) {
+		for flag := range taskChan {
+			if flag {
+				go drive(t, job, etcds, numOfTasks, taskBuilder)
+			} else {
+				return
+			}
+		}
+	}(taskBuilder.TaskChan)
 
 	// wait for last number to comeback.
 	wantData := []int32{0, 105, 210, 315, 420, 525, 630, 735, 840, 945, 1050}
@@ -49,6 +71,8 @@ func TestRegressionFramework(t *testing.T) {
 		}
 	}
 
+	// end the gorutine that simulate kubernetes.
+	taskBuilder.TaskChan <- false
 	<-taskBuilder.FinishChan
 }
 
