@@ -119,7 +119,7 @@ func (t *dummyMaster) ChildDataReady(childID uint64, req string, resp []byte) {
 		// one that is going out.
 		t.taskChan <- true
 		// TODO: how do we make sure we shutdown goroutine gracefully.
-		t.framework.ShutdownTask()
+		t.framework.(*framework).stop()
 	}
 
 	// This is a weak form of checking. We can also check the task ids.
@@ -221,7 +221,7 @@ func (t *dummySlave) ParentDataReady(parentID uint64, req string, resp []byte) {
 		// one that is going out.
 		t.taskChan <- true
 		// TODO: how do we make sure we shutdown goroutine gracefully.
-		t.framework.ShutdownTask()
+		t.framework.(*framework).stop()
 	}
 
 	// If this task has children, flag meta so that children can start pull

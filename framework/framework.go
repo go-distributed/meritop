@@ -127,10 +127,6 @@ func (f *framework) releaseResource() {
 	}
 }
 
-func (f *framework) ShutdownTask() {
-	f.stop()
-}
-
 // this will shutdown local node instead of global job.
 func (f *framework) stop() {
 	close(f.epochChan)
