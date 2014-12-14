@@ -35,6 +35,10 @@ type Framework interface {
 	// This allow the task implementation query its neighbors.
 	GetTopology() Topology
 
+	// This give the user code an opportunity to shut down itself gracefully
+	// Usefully for testing.
+	ShutdownTask()
+
 	// Some task can inform all participating tasks to shutdown.
 	// If successful, all tasks will be gracefully shutdown.
 	ShutdownJob()
