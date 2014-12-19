@@ -59,6 +59,7 @@ func (f *framework) Start() {
 	// Get the task implementation and topology for this node (indentified by taskID)
 	f.task = f.taskBuilder.GetTask(f.taskID)
 	f.topology.SetTaskID(f.taskID)
+
 	// task init is put before any other routines.
 	// For example, if a watch of parent meta is triggered but task isn't init-ed
 	// yet, then there will a null pointer access
@@ -66,6 +67,7 @@ func (f *framework) Start() {
 
 	f.epochChan = make(chan uint64, 1)
 	f.epochStop = make(chan bool, 1)
+
 	// meta will have epoch prepended so we must get epoch before any watch on meta
 	f.epoch, err = etcdutil.GetAndWatchEpoch(f.etcdClient, f.name, f.epochChan, f.epochStop)
 	if err != nil {
@@ -76,13 +78,13 @@ func (f *framework) Start() {
 		f.epochStop <- true
 		return
 	}
+
 	f.task.SetEpoch(f.epoch)
 	f.log.Printf("task %d starting at epoch %d\n", f.taskID, f.epoch)
 
 	f.heartbeat()
 
 	f.dataRespChan = make(chan *frameworkhttp.DataResponse, 100)
-	f.dataReqStop = make(chan struct{})
 	go f.startHTTP()
 	go f.dataResponseReceiver()
 
